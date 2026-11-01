@@ -11,7 +11,15 @@ A fast, lightweight, and responsive Git GUI wrapper written in Python that looks
 ## Key Features
 
 1. **SourceTree-Inspired Layout & Workflow**:
-   - **Top Toolbar**: Immediate access to `Commit`, `Pull`, `Push`, `Fetch`, `Branch`, `Merge`, `Stash`, `Discard`, `Terminal`, and `Refresh` with ahead/behind badges (`⇡1 ⇣2`).
+   - **Top Toolbar**: Immediate access to `Commit`, `Pull`, `Push`, `Fetch`, `Branch`, `Merge`, `Stash`, `Discard`, `Terminal`, `Theme` switcher, and `Refresh` with ahead/behind badges (`⇡1 ⇣2`).
+   - **Active Operation Progress**: Visual animated rotating progress spinner and status indicator when network operations (`push`, `pull`, `fetch`) are executing.
+   - **Modern Typography**: High-resolution Open Sans UI font with crisp anti-aliasing and DejaVu Sans Mono code font for diff inspection and terminal logs.
+   - **Multi-Theme Support**: Built-in themes with live real-time switching and preference persistence:
+     - `SourceTree Dark` (Classic dark theme)
+     - `SourceTree Light` (Modern clean light theme)
+     - `GitHub Dark` (Modern GitHub dark palette)
+     - `Nord` (Arctic north-bluish palette)
+     - `Solarized Dark` (Classic low-contrast programmer palette)
    - **Left Navigation Sidebar**:
      - **Workspace**: Quick toggle between `File Status` (uncommitted changes) and `History` (commit graph).
      - **Branches**: Local branches with active checkout indicators; right-click / quick actions to checkout or delete.
@@ -60,13 +68,46 @@ cd /path/to/clankit
 python3 -m venv .venv
 source .venv/bin/activate
 
-# 3. Install dependencies
+# 3. Install clankit
 pip install -e .
 
 # 4. Launch Clankit in the current directory or specify a target repo
-python run.py
+clankit
 # or specify a path:
-python run.py /path/to/another/repo
+clankit /path/to/another/repo
+```
+
+### Desktop Application Installation
+
+You can install Clankit so that it shows up in your desktop application launcher (GNOME, KDE Plasma, XFCE, Rofi, etc.) with custom application icons:
+
+```bash
+# Install to your user environment:
+pip install .
+
+# Register the application in your system application menu:
+clankit --install-desktop
+```
+
+To uninstall desktop integration at any time:
+```bash
+clankit --uninstall-desktop
+```
+
+### CLI Options
+
+```text
+usage: clankit [-h] [--version] [--install-desktop] [--uninstall-desktop] [--theme THEME] [path]
+
+positional arguments:
+  path                 Path to the Git repository (default: current directory)
+
+options:
+  -h, --help           show this help message and exit
+  --version            Show Clankit version and exit
+  --install-desktop    Install desktop launcher (.desktop) and application icons
+  --uninstall-desktop  Uninstall system desktop launcher and application icons
+  --theme THEME        Initial theme to use ('SourceTree Dark', 'SourceTree Light', 'GitHub Dark', 'Nord', 'Solarized Dark')
 ```
 
 ---

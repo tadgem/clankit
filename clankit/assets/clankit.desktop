@@ -1,0 +1,18 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Clankit
+GenericName=Git GUI Client
+Comment=A fast, SourceTree-like Git GUI client powered by Dear PyGui
+Exec=clankit %F
+Icon=clankit
+Terminal=false
+Categories=Development;RevisionControl;
+StartupWMClass=clankit
+Keywords=git;version-control;sourcetree;diff;commit;gui;
+MimeType=inode/directory;
+Actions=NewWindow;
+
+[Desktop Action NewWindow]
+Name=New Window
+Exec=clankit

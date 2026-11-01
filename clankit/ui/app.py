@@ -7,10 +7,12 @@ import threading
 from typing import Optional
 import dearpygui.dearpygui as dpg
 
+from clankit.desktop import get_asset_path
 from clankit.git.models import CommandResult, FileDelta, RepoStatus
 from clankit.git.repository import GitRepository
 from clankit.git.runner import GitRunner
-from clankit.ui.theme import apply_sourcetree_theme
+from clankit.ui.font_manager import FontManager
+from clankit.ui.theme import apply_sourcetree_theme, get_theme_manager
 from clankit.ui.views.console_view import ConsoleViewComponent
 from clankit.ui.views.dialogs import DialogManager
 from clankit.ui.views.history_view import HistoryViewComponent
@@ -28,6 +30,8 @@ class ClankitApp:
         self.repo = GitRepository(self.initial_path, runner=self.runner)
 
         self.dialogs = DialogManager()
+        self.font_manager = FontManager()
+        self.theme_manager = get_theme_manager()
         self.toolbar: Optional[ToolbarComponent] = None
         self.sidebar: Optional[SidebarComponent] = None
         self.staging_view: Optional[StagingViewComponent] = None
@@ -48,6 +52,7 @@ class ClankitApp:
     def build_ui(self) -> None:
         """Construct the full Dear PyGui layout."""
         dpg.create_context()
+        self.font_manager.setup_fonts(ui_size=15, mono_size=14)
         apply_sourcetree_theme()
 
         with dpg.window(tag="main_window", label="Clankit", no_title_bar=True):
@@ -66,6 +71,7 @@ class ClankitApp:
                 on_stash_click=self._action_stash_dialog,
                 on_discard_click=self._action_discard_unstaged_dialog,
                 get_repo_path=lambda: self.repo.root,
+                on_theme_change=self._action_change_theme,
             )
             self.toolbar.build()
 
@@ -108,10 +114,18 @@ class ClankitApp:
             )
             self.history_view.build()
 
+            # Monospace font binding for code diffs
+            if hasattr(self.staging_view, "diff_viewer"):
+                self.font_manager.bind_mono_font(self.staging_view.diff_viewer.tag)
+            if hasattr(self.history_view, "diff_viewer"):
+                self.font_manager.bind_mono_font(self.history_view.diff_viewer.tag)
+
             # 3. Bottom Git Activity Console Drawer
             dpg.add_spacer(height=2)
             self.console_view = ConsoleViewComponent(parent_tag="main_window")
             self.console_view.build()
+            if hasattr(self.console_view, "output_text_tag"):
+                self.font_manager.bind_mono_font(self.console_view.output_text_tag)
 
         dpg.create_viewport(
             title=f"Clankit - {os.path.basename(self.repo.root)}",
@@ -120,6 +134,21 @@ class ClankitApp:
             min_width=960,
             min_height=600,
         )
+
+        # Set application window and taskbar icons
+        icon_small = get_asset_path("icons/clankit_32.png")
+        icon_large = get_asset_path("icons/clankit_256.png")
+        if os.path.exists(icon_small):
+            try:
+                dpg.set_viewport_small_icon(icon_small)
+            except Exception:
+                pass
+        if os.path.exists(icon_large):
+            try:
+                dpg.set_viewport_large_icon(icon_large)
+            except Exception:
+                pass
+
         dpg.setup_dearpygui()
         dpg.set_primary_window("main_window", True)
 
@@ -196,24 +225,40 @@ class ClankitApp:
         self._switch_view("status")
 
     def _action_pull(self) -> None:
+        if self.toolbar:
+            self.toolbar.set_busy(True, "Pulling from remote...")
+
         def _cb(res: CommandResult):
             self._action_queue.put(("refresh_with_result", res))
 
         self.repo.pull(rebase=False, callback=_cb)
 
     def _action_push(self) -> None:
+        status = self.repo.get_status()
+        branch = status.current_branch or "HEAD"
+        if self.toolbar:
+            self.toolbar.set_busy(True, f"Pushing '{branch}'...")
+
         def _cb(res: CommandResult):
             self._action_queue.put(("refresh_with_result", res))
 
-        status = self.repo.get_status()
-        branch = status.current_branch
-        self.repo.push(remote="origin", branch=branch, callback=_cb)
+        self.repo.push(remote="origin", branch=status.current_branch, callback=_cb)
 
     def _action_fetch(self) -> None:
+        if self.toolbar:
+            self.toolbar.set_busy(True, "Fetching remotes...")
+
         def _cb(res: CommandResult):
             self._action_queue.put(("refresh_with_result", res))
 
         self.repo.fetch_all(callback=_cb)
+
+    def _action_change_theme(self, theme_display_or_key: str) -> None:
+        """Switch active theme dynamically and reload view styling."""
+        self.theme_manager.apply_theme(theme_display_or_key, save_preference=True)
+        if self.toolbar:
+            self.toolbar.update_theme()
+        self.refresh()
 
     def _action_branch_dialog(self) -> None:
         def _on_create(name: str, checkout: bool):
@@ -358,6 +403,8 @@ class ClankitApp:
                     if action == "log_cmd" and self.console_view:
                         self.console_view.log_command(payload)
                     elif action == "refresh_with_result":
+                        if self.toolbar:
+                            self.toolbar.set_busy(False)
                         if not payload.success:
                             self.dialogs.show_error("Remote Git Error", payload.stderr, payload.stdout)
                         self.refresh()
