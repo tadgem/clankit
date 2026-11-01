@@ -1,4 +1,4 @@
-"""Smoke test verifying Dear PyGui UI lifecycle, frame rendering, and repository switching."""
+"""Smoke test verifying Dear PyGui UI lifecycle, frame rendering, staging actions, and repository switching."""
 
 import os
 import shutil
@@ -50,6 +50,29 @@ def test_ui_build_render_and_repo_switch():
         assert app.history_view.selected_commit.subject == "Commit from Repo One"
         cols_r1 = dpg.get_item_children(app.history_view.commits_table_tag, 0)
         assert len(cols_r1) == 5
+
+        # Verify unstaged files in staging view
+        st1 = app.repo.get_status()
+        assert len(st1.unstaged_files) == 1
+        assert st1.unstaged_files[0].path == "file1.txt"
+        assert len(st1.staged_files) == 0
+
+        # Test staging via the staging view action callback
+        app.staging_view.on_stage_file("file1.txt")
+        dpg.render_dearpygui_frame()
+
+        st1_after_stage = app.repo.get_status()
+        assert len(st1_after_stage.unstaged_files) == 0
+        assert len(st1_after_stage.staged_files) == 1
+        assert st1_after_stage.staged_files[0].path == "file1.txt"
+
+        # Test unstaging via the staging view action callback
+        app.staging_view.on_unstage_file("file1.txt")
+        dpg.render_dearpygui_frame()
+
+        st1_after_unstage = app.repo.get_status()
+        assert len(st1_after_unstage.unstaged_files) == 1
+        assert len(st1_after_unstage.staged_files) == 0
 
         # Render 3 frames
         for _ in range(3):

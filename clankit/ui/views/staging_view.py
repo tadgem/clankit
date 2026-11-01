@@ -156,6 +156,10 @@ class StagingViewComponent:
         # 4. Refresh selected file diff if still relevant in this repo
         matching_file = next((f for f in status.files if f.path == self.selected_file), None) if self.selected_file else None
         if matching_file:
+            if not self.selected_is_staged and not matching_file.is_unstaged and matching_file.is_staged:
+                self.selected_is_staged = True
+            elif self.selected_is_staged and not matching_file.is_staged and matching_file.is_unstaged:
+                self.selected_is_staged = False
             self._display_file_diff(self.selected_file, self.selected_is_staged)
         else:
             self.selected_file = None
@@ -167,14 +171,6 @@ class StagingViewComponent:
         status_color = self._get_status_color(status_letter)
 
         row_group = dpg.add_group(parent=self.unstaged_table_tag, horizontal=True)
-        dpg.add_text(f"[{status_letter}]", parent=row_group, color=status_color)
-        dpg.add_selectable(
-            parent=row_group,
-            label=delta.path,
-            user_data=(delta.path, False),
-            callback=self._on_select_file,
-            span_columns=True,
-        )
         dpg.add_button(
             parent=row_group,
             label="Stage",
@@ -189,24 +185,33 @@ class StagingViewComponent:
         )
         dpg.bind_item_theme(discard_btn, self._danger_theme)
 
+        dpg.add_text(f"[{status_letter}]", parent=row_group, color=status_color)
+        dpg.add_selectable(
+            parent=row_group,
+            label=delta.path,
+            user_data=(delta.path, False),
+            callback=self._on_select_file,
+            default_value=(self.selected_file == delta.path and not self.selected_is_staged),
+        )
+
     def _build_staged_row(self, delta: FileDelta) -> None:
         status_letter = delta.index_status
         status_color = self._get_status_color(status_letter)
 
         row_group = dpg.add_group(parent=self.staged_table_tag, horizontal=True)
+        dpg.add_button(
+            parent=row_group,
+            label="Unstage",
+            user_data=delta.path,
+            callback=lambda s, a, u: self.on_unstage_file(u),
+        )
         dpg.add_text(f"[{status_letter}]", parent=row_group, color=status_color)
         dpg.add_selectable(
             parent=row_group,
             label=delta.path,
             user_data=(delta.path, True),
             callback=self._on_select_file,
-            span_columns=True,
-        )
-        dpg.add_button(
-            parent=row_group,
-            label="Unstage",
-            user_data=delta.path,
-            callback=lambda s, a, u: self.on_unstage_file(u),
+            default_value=(self.selected_file == delta.path and self.selected_is_staged),
         )
 
     def _get_status_color(self, letter: str) -> tuple:
