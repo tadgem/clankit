@@ -96,11 +96,44 @@ class HistoryViewComponent:
                     self.diff_viewer = DiffViewerComponent(parent_tag=diff_container_tag, tag="history_diff_viewer")
                     self.diff_viewer.build()
 
+    def reset(self) -> None:
+        """Reset state when switching repositories."""
+        self.selected_commit = None
+        self.commits = []
+        if dpg.does_item_exist(self.filter_input_tag):
+            dpg.set_value(self.filter_input_tag, "")
+        self._clear_commit_details()
+
+    def _clear_commit_details(self) -> None:
+        self.selected_commit = None
+        if dpg.does_item_exist(self.commit_meta_tag):
+            dpg.set_value(self.commit_meta_tag, "")
+        if dpg.does_item_exist(self.commit_body_tag):
+            dpg.set_value(self.commit_body_tag, "No commits to display.")
+        if dpg.does_item_exist(self.commit_files_list_tag):
+            dpg.delete_item(self.commit_files_list_tag, children_only=True)
+            dpg.add_text("No commit selected", parent=self.commit_files_list_tag, color=SourceTreeColors.TEXT_MUTED)
+        if self.diff_viewer:
+            self.diff_viewer.set_diff("", file_name="")
+
     def update_data(self, commits: List[CommitNode]) -> None:
         """Update commit history and compute graph layout."""
         self.commits = commits
         CommitGraphLayout.layout(self.commits)
-        self._populate_table(self.commits)
+        # Apply any active search filter if present
+        filter_text = dpg.get_value(self.filter_input_tag).strip().lower() if dpg.does_item_exist(self.filter_input_tag) else ""
+        if filter_text:
+            filtered = [
+                c
+                for c in self.commits
+                if filter_text in c.subject.lower()
+                or filter_text in c.author_name.lower()
+                or filter_text in c.short_hash.lower()
+                or any(filter_text in r.lower() for r in c.refs)
+            ]
+            self._populate_table(filtered)
+        else:
+            self._populate_table(self.commits)
 
     def _on_filter_changed(self, sender, filter_text: str) -> None:
         filter_text = filter_text.strip().lower()
@@ -119,11 +152,13 @@ class HistoryViewComponent:
         self._populate_table(filtered)
 
     def _populate_table(self, commit_list: List[CommitNode]) -> None:
-        dpg.delete_item(self.commits_table_tag, children_only=True)
+        # Delete only row children from slot 1, leaving columns (slot 0) intact!
+        row_children = dpg.get_item_children(self.commits_table_tag, 1) or []
+        for child in row_children:
+            dpg.delete_item(child)
 
         for commit in commit_list:
-            row_tag = f"commit_row_{commit.hash}"
-            with dpg.table_row(parent=self.commits_table_tag, tag=row_tag):
+            with dpg.table_row(parent=self.commits_table_tag):
                 # 1. Graph representation
                 graph_glyph = CommitGraphLayout.format_ascii_graph(commit)
                 lane_color = CommitGraphLayout.get_lane_color(commit.lane)
@@ -153,9 +188,12 @@ class HistoryViewComponent:
                 # 5. SHA
                 dpg.add_text(commit.short_hash, color=SourceTreeColors.DIFF_HEADER_TEXT)
 
-        # Select first commit by default if none selected
-        if commit_list and self.selected_commit is None:
-            self._display_commit_details(commit_list[0])
+        # Select first commit by default if none selected or if previous commit not in current list
+        if commit_list:
+            if self.selected_commit is None or not any(c.hash == self.selected_commit.hash for c in commit_list):
+                self._display_commit_details(commit_list[0])
+        else:
+            self._clear_commit_details()
 
     def _on_select_commit(self, sender, app_data, user_data: CommitNode) -> None:
         self._display_commit_details(user_data)

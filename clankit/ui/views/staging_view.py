@@ -115,6 +115,19 @@ class StagingViewComponent:
                     )
                     dpg.bind_item_theme(btn_commit, self._primary_theme)
 
+    def reset(self) -> None:
+        """Reset state when switching repositories."""
+        self.selected_file = None
+        self.selected_is_staged = False
+        if dpg.does_item_exist(self.subject_input_tag):
+            dpg.set_value(self.subject_input_tag, "")
+        if dpg.does_item_exist(self.body_input_tag):
+            dpg.set_value(self.body_input_tag, "")
+        if dpg.does_item_exist(self.amend_checkbox_tag):
+            dpg.set_value(self.amend_checkbox_tag, False)
+        if self.diff_viewer:
+            self.diff_viewer.set_diff("", file_name="")
+
     def update_data(self, status: RepoStatus) -> None:
         """Update file lists and refresh the diff view."""
         # 1. Update Unstaged
@@ -140,9 +153,14 @@ class StagingViewComponent:
         btn_label = f"Commit ({staged_count})" if staged_count > 0 else "Commit"
         dpg.configure_item(self.commit_btn_tag, label=btn_label)
 
-        # 4. Refresh selected file diff if still relevant
-        if self.selected_file:
+        # 4. Refresh selected file diff if still relevant in this repo
+        matching_file = next((f for f in status.files if f.path == self.selected_file), None) if self.selected_file else None
+        if matching_file:
             self._display_file_diff(self.selected_file, self.selected_is_staged)
+        else:
+            self.selected_file = None
+            if self.diff_viewer:
+                self.diff_viewer.set_diff("", file_name="")
 
     def _build_unstaged_row(self, delta: FileDelta) -> None:
         status_letter = delta.worktree_status if delta.worktree_status != " " else delta.index_status

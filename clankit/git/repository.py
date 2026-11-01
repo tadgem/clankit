@@ -29,7 +29,7 @@ class GitRepository:
     """Manages a local Git repository strictly via standard Git CLI commands."""
 
     def __init__(self, path: str, runner: Optional[GitRunner] = None):
-        self.path = os.path.abspath(path)
+        self.path = os.path.abspath(os.path.expanduser(path))
         self.runner = runner or GitRunner()
         self._root_path: Optional[str] = None
 

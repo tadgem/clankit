@@ -134,13 +134,21 @@ class ClankitApp:
 
     def open_repository(self, path: str) -> None:
         """Switch to another repository."""
-        new_repo = GitRepository(path, runner=self.runner)
+        expanded_path = os.path.abspath(os.path.expanduser(path))
+        new_repo = GitRepository(expanded_path, runner=self.runner)
         if not new_repo.is_valid():
             self.dialogs.show_error("Invalid Repository", f"The directory '{path}' is not a valid Git repository.")
             return
 
         self.repo = new_repo
         dpg.set_viewport_title(f"Clankit - {os.path.basename(self.repo.root)}")
+
+        # Reset views before loading new repository data
+        if self.history_view:
+            self.history_view.reset()
+        if self.staging_view:
+            self.staging_view.reset()
+
         self.refresh()
 
     def refresh(self) -> None:
