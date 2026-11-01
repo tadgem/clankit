@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "clankit"
+version = "0.1.0"
+description = "A fast, unbiased SourceTree-like Git GUI wrapper in Python powered by Dear PyGui"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "dearpygui>=2.3.1",
+]
+
+[project.scripts]
+clankit = "clankit.main:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["clankit*"]
